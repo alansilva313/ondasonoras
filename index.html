@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decibel Wave Meter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .wave-container {
+            position: relative;
+            width: 80%;
+            height: 150px;
+            background-color: #ddd;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .wave-bar {
+            width: 5px;
+            background-color: #76c7c0;
+            margin: 1px;
+            transition: height 0.1s;
+        }
+
+        #decibelLevel {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ondas Sonoras Music</h1>
+    <div class="wave-container" id="waveContainer"></div>
+
+
+    <script>
+        async function startCapture() {
+            try {
+                // Request access to the user's microphone
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Create an AudioContext
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Create a MediaStreamSource from the microphone stream
+                const source = audioContext.createMediaStreamSource(stream);
+
+                // Create an AnalyserNode
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                // Connect the source to the analyser
+                source.connect(analyser);
+
+                const waveContainer = document.getElementById('waveContainer');
+
+                // Create wave bars
+                for (let i = 0; i < bufferLength; i++) {
+                    const bar = document.createElement('div');
+                    bar.classList.add('wave-bar');
+                    waveContainer.appendChild(bar);
+                }
+
+                const waveBars = document.getElementsByClassName('wave-bar');
+
+                function getDecibels() {
+                    // Get the time-domain data
+                    analyser.getByteTimeDomainData(dataArray);
+
+                    // Calculate the RMS (root mean square) of the signal
+                    let sumSquares = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        const amplitude = dataArray[i] / 128 - 1;
+                        sumSquares += amplitude * amplitude;
+                    }
+                    const rms = Math.sqrt(sumSquares / bufferLength);
+
+                    // Convert RMS to decibels
+                    const decibels = 20 * Math.log10(rms);
+
+                 
+
+                    // Update the wave bars based on decibels
+                    for (let i = 0; i < bufferLength; i++) {
+                        const barHeight = Math.min(Math.max((dataArray[i] - 128) * 2, 0), 150);
+                        waveBars[i].style.height = `${barHeight}px`;
+                    }
+                }
+
+                function filterNoise(decibels) {
+                    const noiseThreshold = -50; // Adjust this threshold as needed
+                    return decibels > noiseThreshold ? decibels : 0;
+                }
+
+                // Update the decibel level and wave bars every 100ms
+                setInterval(() => {
+                    getDecibels();
+                }, 100);
+            } catch (err) {
+                console.error('Error capturing audio:', err);
+            }
+        }
+
+        // Start capturing audio when the page loads
+        window.onload = startCapture;
+    </script>
+</body>
+</html>
